@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, APIRouter
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, engine, Base
 from .models import Base, User, Channel
@@ -7,10 +7,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.auth import get_password_hash, verify_password, create_access_token, get_current_user
 from app.auth import router as auth_router
 from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
+import httpx
+from fastapi.middleware.cors import CORSMiddleware
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+router = APIRouter
+
+# Agregar el middleware de CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Permitir todos los orígenes, o especifica tu frontend (localhost:5173)
+    allow_credentials=True,
+    allow_methods=["*"],  # Permitir todos los métodos HTTP
+    allow_headers=["*"],  # Permitir todos los encabezados
+)
 
 security = HTTPBearer()
 @app.get("/me")
@@ -89,3 +101,20 @@ def create_channel(channel: ChannelCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_channel)
     return db_channel
+
+from fastapi import APIRouter, HTTPException
+import httpx
+
+router = APIRouter()
+
+@router.get("/proxy")
+async def proxy_m3u(url: str):
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url)
+            response.raise_for_status()  # Lanza error si la respuesta es incorrecta
+            return response.content  # Devuelve el contenido del archivo M3U
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail="Error al acceder al M3U")
+    except httpx.RequestError:
+        raise HTTPException(status_code=500, detail="Error de conexión con el servidor")

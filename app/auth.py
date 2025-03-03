@@ -26,6 +26,10 @@ def get_db():
 
 fake_users_db = {}
 
+# Utilizar OAuth2PasswordBearer para gestionar el flujo de autenticación
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+
 #crear instancia de CryptContext pars encriptar contrasenas
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated = "auto")
 
@@ -48,11 +52,15 @@ def create_access_token(data: dict, expires_delta: timedelta = timedelta(minutes
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 #obtener usuario a partir de su nombre de usuario
-def get_user(db, username: str):
-    if username in db:
-        user_dict = db[username]
-        return UserInDB(**user_dict)
-    return None
+# def get_user(db, username: str):
+#     if username in db:
+#         user_dict = db[username]
+#         return UserInDB(**user_dict)
+#     return None
+
+# Función para obtener usuario de la base de datos
+def get_user(db: Session, username: str):
+    return db.query(User).filter(User.username == username).first()
 
 #ruta para crear un nuevo usuario 
 @router.post("/register", response_model=UserResponse)
@@ -75,7 +83,7 @@ def login_for_access_token(user: UserCreate, db:Session=Depends(get_db)):
 
 #ruta para obtener lo canales preferidos del usuario
 @router.get("/me", response_model=UserResponse)
-def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=401, detail="Could not validate credentials"
     )
@@ -84,7 +92,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
-        user = get_user(fake_users_db, username)
+        user = get_user(db, username)
         if user is None:
             raise credentials_exception
         
