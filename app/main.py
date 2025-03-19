@@ -110,7 +110,7 @@ router = APIRouter()
 @router.get("/proxy")
 async def proxy_m3u(url: str):
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(verify=False) as client:
             response = await client.get(url)
             response.raise_for_status()  # Lanza error si la respuesta es incorrecta
             return response.content  # Devuelve el contenido del archivo M3U
